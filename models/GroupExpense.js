@@ -47,6 +47,10 @@ const groupExpenseSchema = new mongoose.Schema({
     currency: {
         type: String,
         default: 'usd'
+    },
+    premium: {
+        type: Boolean,
+        default: false
     }
 });
 

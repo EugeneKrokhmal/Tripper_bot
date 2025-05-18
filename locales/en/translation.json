@@ -114,5 +114,14 @@
   "currency_label_uzs": "Uzbekistani Soʻm (soʻm)",
   "currency_label_azn": "Azerbaijani Manat (₼)",
   "currency_label_kzt": "Kazakhstani Tenge (₸)",
-  "currency_label_pl": "Polish Złoty (zł)"
+  "currency_label_pl": "Polish Złoty (zł)",
+  "your_groups_status": "Your groups and their premium status:",
+  "premium_active": "Premium ✅",
+  "premium_inactive": "Free (Upgrade for more features)",
+  "premium_active_group": "This group is Premium! 🎉",
+  "premium_inactive_group": "This group is Free. Upgrade to unlock premium features!",
+  "premium_invoice_title": "Upgrade to Tripper Premium",
+  "premium_invoice_description": "Unlock all premium features for this group: unlimited members, PDF export, advanced reminders, and more!",
+  "premium_invoice_label": "Tripper Premium (one-time)",
+  "premium_activated": "🎉 This group is now Premium! Enjoy all features!"
 }

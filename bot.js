@@ -420,3 +420,80 @@ bot.onText(/\/currency/, async (msg) => {
         await bot.sendMessage(chatId, t('select_currency'), { reply_markup: keyboard });
     }
 });
+
+const PAYMENT_PROVIDER_TOKEN = process.env.TELEGRAM_PAYMENT_TOKEN;
+if (!PAYMENT_PROVIDER_TOKEN) {
+    console.error('TELEGRAM_PAYMENT_TOKEN is not set in .env file. Please get a payment provider token from @BotFather and add it to your .env file.');
+    process.exit(1);
+}
+
+console.log('Payment Provider Token:', PAYMENT_PROVIDER_TOKEN); // Debug line
+
+const PREMIUM_PRICE = 399; // in cents, e.g. 399 = $3.99
+const PREMIUM_CURRENCY = 'USD'; // Must be a valid ISO 4217 code
+
+bot.onText(/\/premium/, async (msg) => {
+    const { t } = await expenseHandler.getT(msg);
+    const userId = msg.from.id;
+    if (msg.chat.type === 'private') {
+        // List all groups and their premium status
+        const groups = await GroupExpense.find({ 'members.userId': userId });
+        if (!groups.length) {
+            return bot.sendMessage(msg.chat.id, t('no_groups_found'));
+        }
+        let text = t('your_groups_status') + '\n\n';
+        for (const group of groups) {
+            text += `${group.groupName || t('group_id', { id: group.chatId })}: ` +
+                (group.premium ? t('premium_active') : t('premium_inactive')) + '\n';
+        }
+        return bot.sendMessage(msg.chat.id, text);
+    } else {
+        // In group chat: show this group's premium status or send invoice
+        const chatId = msg.chat.id;
+        const groupExpense = await GroupExpense.findOne({ chatId });
+        if (!groupExpense) {
+            await bot.sendMessage(chatId, t('no_expenses_group'));
+            return;
+        }
+        if (groupExpense.premium) {
+            await bot.sendMessage(chatId, t('premium_active_group'));
+        } else {
+            // Send Telegram payment invoice
+            await bot.sendInvoice(
+                chatId,
+                t('premium_invoice_title'),
+                t('premium_invoice_description'),
+                `premium_group_${chatId}`,
+                PAYMENT_PROVIDER_TOKEN,
+                PREMIUM_CURRENCY,
+                JSON.stringify([{
+                    label: t('premium_invoice_label'),
+                    amount: PREMIUM_PRICE
+                }]),
+                {
+                    photo_url: 'https://telegram.org/img/t_logo.png',
+                    need_name: true,
+                    need_email: false
+                }
+            );
+        }
+    }
+});
+
+// Handle Telegram Payments
+bot.on('pre_checkout_query', (query) => {
+    bot.answerPreCheckoutQuery(query.id, true);
+});
+
+bot.on('successful_payment', async (msg) => {
+    // Only handle premium payments
+    if (!msg.successful_payment || !msg.successful_payment.invoice_payload.startsWith('premium_group_')) return;
+    const chatId = msg.chat.id;
+    await GroupExpense.findOneAndUpdate(
+        { chatId },
+        { $set: { premium: true } },
+        { upsert: true }
+    );
+    const { t } = await expenseHandler.getT(msg);
+    await bot.sendMessage(chatId, t('premium_activated'));
+});
