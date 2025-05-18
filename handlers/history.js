@@ -26,12 +26,12 @@ function formatDate(date) {
 }
 
 module.exports = {
-    showHistory: async (bot, msg) => {
+    showHistory: async (bot, msg, t) => {
         const chatId = msg.chat.id;
         try {
             const groupExpense = await GroupExpense.findOne({ chatId });
             if (!groupExpense || (!groupExpense.expenses.length && !groupExpense.settlements.length)) {
-                return bot.sendMessage(chatId, 'No expenses or settlements found for this group.');
+                return bot.sendMessage(chatId, t('no_expenses_settlements_group'));
             }
 
             // Combine expenses and settlements into a single timeline
@@ -49,7 +49,7 @@ module.exports = {
             ].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
              .slice(0, 20);
 
-            let text = 'Expense History\n\n';
+            let text = t('expense_history') + '\n\n';
             const nameCache = {};
 
             for (const item of timeline) {
@@ -58,25 +58,36 @@ module.exports = {
                     const exp = item.data;
                     const paidByName = exp.paidBy
                         ? await getUserName(bot, chatId, exp.paidBy, nameCache)
-                        : 'Unknown';
+                        : t('unknown');
                     const participantNames = [];
                     if (Array.isArray(exp.participants)) {
                         for (const pid of exp.participants) {
                             participantNames.push(await getUserName(bot, chatId, pid, nameCache));
                         }
                     }
-                    text += `${timeStr} [Expense]: $${exp.amount || '?'} - ${exp.description || ''}\nPaid by: ${paidByName}\nParticipants: ${participantNames.join(', ')}\n\n`;
+                    text += t('history_expense_line', {
+                        time: timeStr,
+                        amount: exp.amount || '?',
+                        description: exp.description || '',
+                        paidBy: paidByName,
+                        participants: participantNames.join(', ')
+                    }) + '\n\n';
                 } else {
                     const set = item.data;
                     const fromName = await getUserName(bot, chatId, set.from, nameCache);
                     const toName = await getUserName(bot, chatId, set.to, nameCache);
-                    text += `${timeStr} [Settlement]: $${set.amount} from ${fromName} to ${toName}\n\n`;
+                    text += t('history_settlement_line', {
+                        time: timeStr,
+                        amount: set.amount,
+                        from: fromName,
+                        to: toName
+                    }) + '\n\n';
                 }
             }
             await bot.sendMessage(chatId, text);
         } catch (err) {
             console.error('Error in /history:', err);
-            await bot.sendMessage(chatId, 'Error fetching expense history.');
+            await bot.sendMessage(chatId, t('error_fetching_history'));
         }
     }
 };

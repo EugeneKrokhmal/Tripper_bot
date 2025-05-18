@@ -1,12 +1,12 @@
 const GroupExpense = require('../models/GroupExpense');
 
-const calculateDebts = async (bot, msg) => {
+const calculateDebts = async (bot, msg, t) => {
     const chatId = msg.chat.id;
 
     try {
         const groupExpense = await GroupExpense.findOne({ chatId });
         if (!groupExpense || !groupExpense.expenses.length) {
-            return bot.sendMessage(chatId, 'No expenses found for this group.');
+            return bot.sendMessage(chatId, t('no_expenses_group'));
         }
 
         const debts = new Map(); // Map to store net amounts for each user
@@ -54,7 +54,11 @@ const calculateDebts = async (bot, msg) => {
                     const creditor = await bot.getChatMember(chatId, creditorId);
 
                     debtMessages.push(
-                        `${debtor.user.first_name} → ${creditor.user.first_name}: $${transferAmount.toFixed(2)}`
+                        t('debt_line', {
+                            debtor: debtor.user.first_name,
+                            creditor: creditor.user.first_name,
+                            amount: transferAmount.toFixed(2)
+                        })
                     );
 
                     remainingDebt -= transferAmount;
@@ -64,14 +68,14 @@ const calculateDebts = async (bot, msg) => {
         }
 
         if (debtMessages.length === 0) {
-            return bot.sendMessage(chatId, 'No debts to settle!');
+            return bot.sendMessage(chatId, t('no_debts'));
         }
 
-        const message = '📊 Debt Summary:\n\n' + debtMessages.join('\n');
+        const message = t('debt_summary') + '\n\n' + debtMessages.join('\n');
         return bot.sendMessage(chatId, message);
     } catch (error) {
         console.error('Error calculating debts:', error);
-        return bot.sendMessage(chatId, 'Error calculating debts. Please try again.');
+        return bot.sendMessage(chatId, t('error_calculating_debts'));
     }
 };
 

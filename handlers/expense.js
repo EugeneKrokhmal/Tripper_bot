@@ -1,4 +1,5 @@
 const GroupExpense = require('../models/GroupExpense');
+const BaseHandler = require('./BaseHandler');
 
 const states = {
     AMOUNT: 'amount',
@@ -6,191 +7,206 @@ const states = {
     PARTICIPANTS: 'participants'
 };
 
-const userStates = new Map();
-const getStateKey = (chatId, userId) => `${chatId}:${userId}`;
+class ExpenseHandler extends BaseHandler {
+    constructor(bot) {
+        super(bot);
+        this.userStates = new Map();
+    }
 
-const startExpenseFlow = async (bot, msg) => {
-    if (msg.chat.type === 'private') {
-        userStates.set(getStateKey(msg.chat.id, msg.from.id), {
-            state: states.AMOUNT,
-            data: {} // Don't set groupChatId initially
-        });
-        // Check if user is in multiple groups
-        const groups = await GroupExpense.find({ 'members.userId': msg.from.id });
-        if (!groups.length) {
-            return bot.sendMessage(msg.chat.id, 'No groups found where you are a member.');
-        }
-        if (groups.length === 1) {
-            userStates.get(getStateKey(msg.chat.id, msg.from.id)).data.groupChatId = groups[0].chatId;
-            return bot.sendMessage(msg.chat.id, 'Please enter the expense amount:');
-        } else {
+    getStateKey(chatId, userId) {
+        return `${chatId}:${userId}`;
+    }
+
+    async startExpenseFlow(msg) {
+        const t = await this.getT(msg);
+        
+        if (msg.chat.type === 'private') {
+            this.userStates.set(this.getStateKey(msg.chat.id, msg.from.id), {
+                state: states.AMOUNT,
+                data: {}
+            });
+
+            const groups = await GroupExpense.find({ 'members.userId': msg.from.id });
+            if (!groups.length) {
+                return this.sendMessage(msg.chat.id, t('no_groups_found'));
+            }
+
+            if (groups.length === 1) {
+                this.userStates.get(this.getStateKey(msg.chat.id, msg.from.id)).data.groupChatId = groups[0].chatId;
+                return this.sendMessage(msg.chat.id, t('enter_amount'));
+            }
+
             const keyboard = {
                 inline_keyboard: groups.map(g => [{
-                    text: g.groupName ? g.groupName : `Group ${g.chatId}`,
+                    text: g.groupName || t('group_id', { id: g.chatId }),
                     callback_data: `expense_group_${g.chatId}`
                 }])
             };
-            return bot.sendMessage(msg.chat.id, 'Select the group to add an expense in:', { reply_markup: keyboard });
+            return this.sendMessage(msg.chat.id, t('select_group'), { reply_markup: keyboard });
         }
-    } else {
-        await bot.sendMessage(msg.chat.id, 'Check your private chat with me to add an expense.');
-        userStates.set(getStateKey(msg.from.id, msg.from.id), {
+
+        await this.sendMessage(msg.chat.id, t('check_private_chat'));
+        this.userStates.set(this.getStateKey(msg.from.id, msg.from.id), {
             state: states.AMOUNT,
             data: { groupChatId: msg.chat.id }
         });
-        return bot.sendMessage(msg.from.id, 'Please enter the expense amount:');
-    }
-};
-
-const handleExpenseInput = async (bot, msg) => {
-    const userId = msg.from.id;
-    const stateKey = getStateKey(userId, userId);
-    const userState = userStates.get(stateKey);
-    if (!userState) return;
-
-    // If no groupChatId is set, check if user is in multiple groups
-    if (!userState.data.groupChatId) {
-        const groups = await GroupExpense.find({ 'members.userId': userId });
-        if (!groups.length) {
-            return bot.sendMessage(userId, 'No groups found where you are a member.');
-        }
-        if (groups.length === 1) {
-            userState.data.groupChatId = groups[0].chatId;
-        } else {
-            const keyboard = {
-                inline_keyboard: groups.map(g => [{
-                    text: g.groupName ? g.groupName : `Group ${g.chatId}`,
-                    callback_data: `expense_group_${g.chatId}`
-                }])
-            };
-            return bot.sendMessage(userId, 'Select the group to add an expense in:', { reply_markup: keyboard });
-        }
+        return this.sendMessage(msg.from.id, t('enter_amount'));
     }
 
-    const chatId = userState.data.groupChatId;
+    async handleExpenseInput(msg) {
+        const t = await this.getT(msg);
+        const userId = msg.from.id;
+        const stateKey = this.getStateKey(userId, userId);
+        const userState = this.userStates.get(stateKey);
+        if (!userState) return;
 
-    switch (userState.state) {
-        case states.AMOUNT:
-            const amount = parseFloat(msg.text);
-            if (isNaN(amount) || amount <= 0) {
-                return bot.sendMessage(userId, 'Please enter a valid amount:');
+        if (!userState.data.groupChatId) {
+            const groups = await GroupExpense.find({ 'members.userId': userId });
+            if (!groups.length) {
+                return this.sendMessage(userId, t('no_groups_found'));
             }
-            userState.data.amount = amount;
-            userState.state = states.DESCRIPTION;
-            return bot.sendMessage(userId, 'Please enter a description for the expense:');
+            if (groups.length === 1) {
+                userState.data.groupChatId = groups[0].chatId;
+            } else {
+                const keyboard = {
+                    inline_keyboard: groups.map(g => [{
+                        text: g.groupName || t('group_id', { id: g.chatId }),
+                        callback_data: `expense_group_${g.chatId}`
+                    }])
+                };
+                return this.sendMessage(userId, t('select_group'), { reply_markup: keyboard });
+            }
+        }
 
-        case states.DESCRIPTION:
-            userState.data.description = msg.text;
-            userState.data.paidBy = userId;
-            userState.state = states.PARTICIPANTS;
-            // Use tracked group members
-            const groupExpense = await GroupExpense.findOne({ chatId });
-            let members = groupExpense ? groupExpense.members : [];
-            // Remove bot from the list
-            const botInfo = await bot.getMe();
-            members = members.filter(m => m.userId !== botInfo.id);
-            if (!members.length) {
-                return bot.sendMessage(userId, 'No group members found. Add members to the group first.');
-            }
-            userState.data.participants = userState.data.participants || [];
-            await sendParticipantSelection(bot, userId, members, userState.data.participants);
-            break;
-        case states.PARTICIPANTS:
-            const expense = userState.data;
-            try {
-                let groupExpense = await GroupExpense.findOne({ chatId: userState.data.groupChatId });
-                if (!groupExpense) {
-                    groupExpense = new GroupExpense({ chatId: userState.data.groupChatId, expenses: [] });
+        const chatId = userState.data.groupChatId;
+
+        switch (userState.state) {
+            case states.AMOUNT:
+                const amount = parseFloat(msg.text);
+                if (isNaN(amount) || amount <= 0) {
+                    return this.sendMessage(userId, t('invalid_amount'));
                 }
-                groupExpense.expenses.push(expense);
-                await groupExpense.save();
-                userStates.delete(stateKey);
-                await bot.sendMessage(userId, 'Expense saved successfully!');
-                return bot.sendMessage(userState.data.groupChatId, `A new expense was added! $${expense.amount} - ${expense.description}`);
-            } catch (error) {
-                console.error('Error saving expense:', error);
-                await bot.sendMessage(userId, 'Error saving expense. Please try again.');
-            }
-    }
-};
+                userState.data.amount = amount;
+                userState.state = states.DESCRIPTION;
+                return this.sendMessage(userId, t('enter_description'));
 
-async function sendParticipantSelection(bot, userId, members, selected) {
-    const keyboard = {
-        inline_keyboard: [
-            ...members.map(member => [{
-                text:
-                    (selected.includes(member.userId) ? '✅ ' : '') +
-                    (member.username ? `@${member.username}` : member.firstName || member.userId),
-                callback_data: `participant_${member.userId}`
-            }]),
-            [{ text: 'Done', callback_data: 'participants_done' }]
-        ]
-    };
-    const summary = selected.length
-        ? 'Selected: ' + members.filter(m => selected.includes(m.userId)).map(m => m.username ? `@${m.username}` : m.firstName || m.userId).join(', ')
-        : 'No participants selected yet.';
-    await bot.sendMessage(userId, `Select participants (click to toggle):\n${summary}`, { reply_markup: keyboard });
+            case states.DESCRIPTION:
+                userState.data.description = msg.text;
+                userState.data.paidBy = userId;
+                userState.state = states.PARTICIPANTS;
+                const groupExpense = await this.getGroupExpense(chatId);
+                let members = groupExpense.members;
+                const botInfo = await this.bot.getMe();
+                members = members.filter(m => m.userId !== botInfo.id);
+                if (!members.length) {
+                    return this.sendMessage(userId, t('no_members_found'));
+                }
+                userState.data.participants = userState.data.participants || [];
+                await this.sendParticipantSelection(userId, members, userState.data.participants);
+                break;
+
+            case states.PARTICIPANTS:
+                try {
+                    const groupExpense = await this.getGroupExpense(userState.data.groupChatId);
+                    groupExpense.expenses.push(userState.data);
+                    await groupExpense.save();
+                    this.userStates.delete(stateKey);
+                    await this.sendMessage(userId, t('expense_saved'));
+                    return this.sendMessage(userState.data.groupChatId, 
+                        t('new_expense', { 
+                            amount: this.formatAmount(userState.data.amount),
+                            description: userState.data.description 
+                        })
+                    );
+                } catch (error) {
+                    await this.handleError(userId, error, t);
+                }
+        }
+    }
+
+    async sendParticipantSelection(userId, members, selected) {
+        const t = await this.getT({ from: { id: userId } });
+        const keyboard = {
+            inline_keyboard: [
+                ...members.map(member => [{
+                    text: `${selected.includes(member.userId) ? '✅ ' : ''}${member.username ? `@${member.username}` : member.firstName || member.userId}`,
+                    callback_data: `participant_${member.userId}`
+                }]),
+                [{ text: t('done'), callback_data: 'participants_done' }]
+            ]
+        };
+
+        const summary = selected.length
+            ? t('selected_participants', {
+                participants: members
+                    .filter(m => selected.includes(m.userId))
+                    .map(m => m.username ? `@${m.username}` : m.firstName || m.userId)
+                    .join(', ')
+            })
+            : t('no_participants_selected');
+
+        await this.sendMessage(userId, `${t('select_participants')}\n${summary}`, { reply_markup: keyboard });
+    }
+
+    async handleCallbackQuery(query) {
+        const t = await this.getT(query, query.from.id);
+        const userId = query.from.id;
+        const stateKey = this.getStateKey(userId, userId);
+        const userState = this.userStates.get(stateKey);
+        if (!userState) return;
+
+        if (query.data.startsWith('expense_group_')) {
+            const groupChatId = query.data.replace('expense_group_', '');
+            userState.data.groupChatId = groupChatId;
+            userState.state = states.AMOUNT;
+            this.userStates.set(stateKey, userState);
+            return this.sendMessage(userId, t('enter_amount'));
+        }
+
+        if (query.data.startsWith('participant_')) {
+            const participantId = parseInt(query.data.split('_')[1]);
+            userState.data.participants = userState.data.participants || [];
+            const idx = userState.data.participants.indexOf(participantId);
+            if (idx === -1) {
+                userState.data.participants.push(participantId);
+            } else {
+                userState.data.participants.splice(idx, 1);
+            }
+
+            const groupExpense = await this.getGroupExpense(userState.data.groupChatId);
+            let members = groupExpense.members;
+            const botInfo = await this.bot.getMe();
+            members = members.filter(m => m.userId !== botInfo.id);
+            await this.sendParticipantSelection(userId, members, userState.data.participants);
+            return this.answerCallbackQuery(query.id, { 
+                text: idx === -1 ? t('participant_added') : t('participant_removed') 
+            });
+        }
+
+        if (query.data === 'participants_done') {
+            if (!userState.data.participants || userState.data.participants.length === 0) {
+                return this.answerCallbackQuery(query.id, { text: t('select_one_participant') });
+            }
+
+            try {
+                const groupExpense = await this.getGroupExpense(userState.data.groupChatId);
+                groupExpense.expenses.push(userState.data);
+                await groupExpense.save();
+                this.userStates.delete(stateKey);
+                await this.sendMessage(userId, t('expense_saved'));
+                await this.sendMessage(userState.data.groupChatId, 
+                    t('new_expense', { 
+                        amount: this.formatAmount(userState.data.amount),
+                        description: userState.data.description 
+                    })
+                );
+                return this.answerCallbackQuery(query.id, { text: t('expense_saved') });
+            } catch (error) {
+                await this.handleError(userId, error, t);
+                return this.answerCallbackQuery(query.id, { text: t('error_saving_expense') });
+            }
+        }
+    }
 }
 
-const handleCallbackQuery = async (bot, query) => {
-    const userId = query.from.id;
-    const stateKey = getStateKey(userId, userId);
-    const userState = userStates.get(stateKey);
-    if (!userState) return;
-
-    if (query.data && query.data.startsWith('expense_group_')) {
-        const groupChatId = query.data.replace('expense_group_', '');
-        userState.data.groupChatId = groupChatId;
-        userState.state = states.AMOUNT;
-        userStates.set(stateKey, userState);
-        return bot.sendMessage(userId, 'Please enter the amount:');
-    }
-
-    if (query.data.startsWith('participant_')) {
-        const participantId = parseInt(query.data.split('_')[1]);
-        userState.data.participants = userState.data.participants || [];
-        const idx = userState.data.participants.indexOf(participantId);
-        if (idx === -1) {
-            userState.data.participants.push(participantId);
-        } else {
-            userState.data.participants.splice(idx, 1);
-        }
-        // Get group members for the UI update
-        const groupExpense = await GroupExpense.findOne({ chatId: userState.data.groupChatId });
-        let members = groupExpense ? groupExpense.members : [];
-        const botInfo = await bot.getMe();
-        members = members.filter(m => m.userId !== botInfo.id);
-        // Update the selection UI
-        await sendParticipantSelection(bot, userId, members, userState.data.participants);
-        return bot.answerCallbackQuery(query.id, { text: idx === -1 ? 'Participant added!' : 'Participant removed!' });
-    }
-
-    if (query.data === 'participants_done') {
-        if (!userState.data.participants || userState.data.participants.length === 0) {
-            return bot.answerCallbackQuery(query.id, { text: 'Select at least one participant.' });
-        }
-        // Save the expense
-        try {
-            let groupExpense = await GroupExpense.findOne({ chatId: userState.data.groupChatId });
-            if (!groupExpense) {
-                groupExpense = new GroupExpense({ chatId: userState.data.groupChatId, expenses: [] });
-            }
-            groupExpense.expenses.push(userState.data);
-            await groupExpense.save();
-            userStates.delete(stateKey);
-            await bot.sendMessage(userId, 'Expense saved successfully!');
-            await bot.sendMessage(userState.data.groupChatId, `A new expense was added! $${userState.data.amount} - ${userState.data.description}`);
-            return bot.answerCallbackQuery(query.id, { text: 'Expense saved!' });
-        } catch (error) {
-            console.error('Error saving expense:', error);
-            await bot.sendMessage(userId, 'Error saving expense. Please try again.');
-            return bot.answerCallbackQuery(query.id, { text: 'Error saving expense.' });
-        }
-    }
-};
-
-module.exports = {
-    startExpenseFlow,
-    handleExpenseInput,
-    handleCallbackQuery
-};
+module.exports = ExpenseHandler;
