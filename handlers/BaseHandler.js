@@ -2,11 +2,23 @@ const GroupExpense = require('../models/GroupExpense');
 const User = require('../models/User');
 const i18next = require('i18next');
 
+/**
+ * Base handler class providing common functionality for all handlers
+ */
 class BaseHandler {
+    /**
+     * @param {Object} bot - Telegram bot instance
+     */
     constructor(bot) {
         this.bot = bot;
     }
 
+    /**
+     * Gets translation function and currency for a user
+     * @param {Object} msgOrQuery - Message or callback query object
+     * @param {number} [userId] - Optional user ID
+     * @returns {Promise<{t: Function, currency: string}>} Translation function and currency
+     */
     async getT(msgOrQuery, userId) {
         const id = userId || msgOrQuery.from?.id;
         try {
@@ -53,14 +65,31 @@ class BaseHandler {
         }
     }
 
+    /**
+     * Gets or creates a group expense document
+     * @param {string} chatId - Telegram chat ID
+     * @returns {Promise<Object>} Group expense document
+     */
     async getGroupExpense(chatId) {
-        let groupExpense = await GroupExpense.findOne({ chatId });
-        if (!groupExpense) {
-            groupExpense = new GroupExpense({ chatId, expenses: [] });
+        try {
+            let groupExpense = await GroupExpense.findOne({ chatId });
+            if (!groupExpense) {
+                groupExpense = new GroupExpense({ chatId, expenses: [] });
+            }
+            return groupExpense;
+        } catch (error) {
+            console.error('Error getting group expense:', error);
+            throw error;
         }
-        return groupExpense;
     }
 
+    /**
+     * Sends a message to a chat
+     * @param {string} chatId - Telegram chat ID
+     * @param {string} text - Message text
+     * @param {Object} [options] - Additional options for sendMessage
+     * @returns {Promise<Object>} Sent message object
+     */
     async sendMessage(chatId, text, options = {}) {
         try {
             return await this.bot.sendMessage(chatId, text, options);
@@ -70,6 +99,12 @@ class BaseHandler {
         }
     }
 
+    /**
+     * Answers a callback query
+     * @param {string} queryId - Callback query ID
+     * @param {Object} [options] - Additional options for answerCallbackQuery
+     * @returns {Promise<Object>} Result of answerCallbackQuery
+     */
     async answerCallbackQuery(queryId, options = {}) {
         try {
             return await this.bot.answerCallbackQuery(queryId, options);
@@ -79,6 +114,12 @@ class BaseHandler {
         }
     }
 
+    /**
+     * Gets a chat member
+     * @param {string} chatId - Telegram chat ID
+     * @param {number} userId - Telegram user ID
+     * @returns {Promise<Object>} Chat member object
+     */
     async getChatMember(chatId, userId) {
         try {
             return await this.bot.getChatMember(chatId, userId);
@@ -88,6 +129,12 @@ class BaseHandler {
         }
     }
 
+    /**
+     * Gets currency symbol
+     * @param {string} currency - Currency code
+     * @param {Function} t - Translation function
+     * @returns {string} Currency symbol
+     */
     getCurrencySymbol(currency, t) {
         const map = {
             usd: '$',
@@ -115,10 +162,24 @@ class BaseHandler {
         return map[currency] || '$';
     }
 
+    /**
+     * Formats an amount with currency symbol
+     * @param {number} amount - Amount to format
+     * @param {string} currency - Currency code
+     * @param {Function} t - Translation function
+     * @returns {string} Formatted amount
+     */
     formatAmount(amount, currency, t) {
         return `${this.getCurrencySymbol(currency, t)}${amount.toFixed(2)}`;
     }
 
+    /**
+     * Handles errors and sends error message to user
+     * @param {string} chatId - Telegram chat ID
+     * @param {Error} error - Error object
+     * @param {Function} t - Translation function
+     * @returns {Promise<void>}
+     */
     async handleError(chatId, error, t) {
         console.error('Error:', error);
         await this.sendMessage(chatId, t('error_occurred'));

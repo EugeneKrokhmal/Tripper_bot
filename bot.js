@@ -18,6 +18,11 @@ const path = require('path');
 const upgradeCommand = require('./commands/upgrade');
 const { formatGroupName } = require('./utils/format');
 const { showLanguageSelection } = require('./handlers/language');
+const config = require('./utils/config');
+const helpCommand = require('./commands/help');
+const currencyCommand = require('./commands/currency');
+const languageCommand = require('./commands/language');
+const premiumCommand = require('./commands/premium');
 
 // Initialize language support
 const languageNames = {
@@ -134,54 +139,7 @@ bot.onText(/\/settle/, async (msg) => {
 
 bot.onText(/\/currency/, async (msg) => {
     const { t } = await expenseHandler.getT(msg);
-    const userId = msg.from.id;
-    if (msg.chat.type === 'private') {
-        // Show group selection if user is in multiple groups
-        const groups = await GroupExpense.find({ 'members.userId': userId });
-        if (!groups.length) {
-            return bot.sendMessage(msg.chat.id, t('no_groups_found'));
-        }
-        if (groups.length === 1) {
-            const group = groups[0];
-            if (!group.premium) {
-                return bot.sendMessage(msg.chat.id, t('premium_only_currency'));
-            }
-            const keyboard = {
-                inline_keyboard: currencyOptions.map(opt => [{
-                    text: `${t(opt.key)}${opt.code === (group.currency || 'usd') ? ' ✓' : ''}`,
-                    callback_data: `currency_${opt.code}_group_${group.chatId}`
-                }])
-            };
-            return bot.sendMessage(msg.chat.id, t('select_currency'), { reply_markup: keyboard });
-        }
-        // Multiple groups: ask which group to set
-        const keyboard = {
-            inline_keyboard: groups.map(g => [{
-                text: formatGroupName(g, t),
-                callback_data: `currency_select_group_${g.chatId}`
-            }])
-        };
-        return bot.sendMessage(msg.chat.id, t('select_group'), { reply_markup: keyboard });
-    } else {
-        // In group chat: set currency for this group
-        const chatId = msg.chat.id;
-        const groupExpense = await GroupExpense.findOne({ chatId });
-        if (!groupExpense) {
-            await bot.sendMessage(chatId, t('no_expenses_group'));
-            return;
-        }
-        if (!groupExpense.premium) {
-            await bot.sendMessage(chatId, t('premium_only_currency'));
-            return;
-        }
-        const keyboard = {
-            inline_keyboard: currencyOptions.map(opt => [{
-                text: `${t(opt.key)}${opt.code === (groupExpense.currency || 'usd') ? ' ✓' : ''}`,
-                callback_data: `currency_${opt.code}_group_${chatId}`
-            }])
-        };
-        await bot.sendMessage(chatId, t('select_currency'), { reply_markup: keyboard });
-    }
+    await currencyCommand(bot)(msg, t, currencyOptions, languageNames);
 });
 
 bot.onText(/\/syncmembers/, async (msg) => {
@@ -479,53 +437,7 @@ if (!PAYMENT_PROVIDER_TOKEN) {
 
 bot.onText(/\/premium/, async (msg) => {
     const { t } = await expenseHandler.getT(msg);
-    const userId = msg.from.id;
-    if (msg.chat.type === 'private') {
-        // List all groups and their premium status
-        const groups = await GroupExpense.find({ 'members.userId': userId });
-        if (!groups.length) {
-            return bot.sendMessage(msg.chat.id, t('no_groups_found'));
-        }
-        let text = t('your_groups_status') + '\n\n';
-        for (const group of groups) {
-            text += `${formatGroupName(group, t)}: ` +
-                (group.premium ? t('premium_active') : t('premium_inactive')) + '\n';
-        }
-        return bot.sendMessage(msg.chat.id, text);
-    } else {
-        // In group chat: show this group's premium status or send invoice
-        const chatId = msg.chat.id;
-        const groupExpense = await GroupExpense.findOne({ chatId });
-        if (!groupExpense) {
-            await bot.sendMessage(chatId, t('no_expenses_group'));
-            return;
-        }
-        if (groupExpense.premium) {
-            await bot.sendMessage(chatId, t('premium_active_group'));
-        } else {
-            // Send Telegram payment invoice
-            await bot.sendInvoice(
-                chatId,
-                t('premium_invoice_title'),
-                t('premium_invoice_description', {
-                    limit: MAX_MEMBERS_FREE,
-                    price: (PREMIUM_PRICE / 100).toFixed(2)
-                }),
-                `premium_group_${chatId}`,
-                PAYMENT_PROVIDER_TOKEN,
-                PREMIUM_CURRENCY,
-                JSON.stringify([{
-                    label: t('premium_invoice_label'),
-                    amount: PREMIUM_PRICE
-                }]),
-                {
-                    photo_url: 'https://telegram.org/img/t_logo.png',
-                    need_name: true,
-                    need_email: false
-                }
-            );
-        }
-    }
+    await premiumCommand(bot)(msg, t);
 });
 
 // Handle Telegram Payments
@@ -574,77 +486,12 @@ bot.on('successful_payment', async (msg) => {
     }
 });
 
-bot.onText(/\/upgrade/, async (msg) => {
-    const { t } = await expenseHandler.getT(msg);
-    if (msg.chat.type === 'private') {
-        return bot.sendMessage(msg.chat.id, t('upgrade_in_group'));
-    }
-    const chatId = msg.chat.id;
-    const groupExpense = await GroupExpense.findOne({ chatId });
-    if (!groupExpense) {
-        await bot.sendMessage(chatId, t('no_expenses_group'));
-        return;
-    }
-    if (groupExpense.premium) {
-        await bot.sendMessage(chatId, t('premium_active_group'));
-    } else {
-        // Send Telegram payment invoice
-        await bot.sendInvoice(
-            chatId,
-            t('premium_invoice_title'),
-            t('premium_invoice_description', {
-                limit: MAX_MEMBERS_FREE,
-                price: (PREMIUM_PRICE / 100).toFixed(2)
-            }),
-            `premium_group_${chatId}`,
-            PAYMENT_PROVIDER_TOKEN,
-            PREMIUM_CURRENCY,
-            JSON.stringify([{
-                label: t('premium_invoice_label'),
-                amount: PREMIUM_PRICE
-            }]),
-            {
-                photo_url: 'https://telegram.org/img/t_logo.png',
-                need_name: true,
-                need_email: false
-            }
-        );
-    }
-});
-
 bot.onText(/\/language/, async (msg) => {
     const t = await getT(msg);
-    if (msg.chat.type === 'private') {
-        showLanguageSelection(bot, msg, t, languageNames);
-        return;
-    }
-    showLanguageSelection(bot, msg, t, languageNames);
+    await languageCommand(bot)(msg, t, languageNames);
 });
 
 bot.onText(/\/help/, async (msg) => {
     const t = await getT(msg);
-    const helpText = `Welcome to Tripper Bot! 🎒
-
-Here's how to use the bot:
-
-• /pay — Add a new expense (in private chat)
-• /edit — Edit your expenses (in private chat)
-• /settle — Mark a debt as settled (in private chat)
-• /debts — Show who owes whom (in group)
-• /history — Show expense history (in group)
-• /clear — Clear all expenses (in group)
-• /syncmembers — Sync group admins as members (in group)
-• /currency — Change group currency (Premium only)
-• /language — Change your language (in private chat)
-• /premium — See your group's premium status
-• /upgrade — Upgrade your group to Premium for unlimited members, expenses, advanced reminders, and more!
-
-How to use:
-1. Add the bot to your group and make it admin.
-2. In private chat, use /pay to add expenses and select your group.
-3. Use /debts and /history in the group to see balances and history.
-4. Upgrade to Premium with /upgrade for full features!
-
-If you need more help, contact the developer or use /help anytime!`;
-    await bot.sendMessage(msg.chat.id, helpText);
+    await helpCommand(bot)(msg, t);
 });

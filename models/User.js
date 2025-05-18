@@ -1,5 +1,16 @@
 const mongoose = require('mongoose');
 
+/**
+ * Schema for user preferences and settings
+ * @typedef {Object} UserSchema
+ * @property {number} userId - Telegram user ID
+ * @property {string} username - Telegram username
+ * @property {string} firstName - User's first name
+ * @property {string} language - User's preferred language (default: 'en')
+ * @property {string} currency - User's preferred currency (default: 'usd')
+ * @property {Date} createdAt - When the user was created
+ * @property {Date} updatedAt - When the user was last updated
+ */
 const userSchema = new mongoose.Schema({
   userId: {
     type: Number,
