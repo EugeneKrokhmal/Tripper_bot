@@ -12,6 +12,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'en'
   },
+  currency: {
+    type: String,
+    default: 'usd'
+  },
   createdAt: {
     type: Date,
     default: Date.now

@@ -23,7 +23,7 @@
   "selected": "נבחרו:",
   "no_participants_selected": "לא נבחרו משתתפים עדיין.",
   "expense_saved": "ההוצאה נשמרה בהצלחה!",
-  "expense_added_group": "הוצאה חדשה נוספה! ${{amount}} - {{description}}",
+  "expense_added_group": "הוצאה חדשה נוספה! {{amount}} - {{description}}",
   "error_saving_expense": "שגיאה בשמירת ההוצאה. נסה שוב.",
   "participant_added": "משתתף נוסף!",
   "participant_removed": "משתתף הוסר!",
@@ -73,5 +73,8 @@
   "error_syncing_members": "שגיאה בסנכרון חברים.",
   "language_set": "השפה הוגדרה ל-{{lang}}",
   "language_updated": "השפה עודכנה!",
-  "select_language": "בחר את השפה שלך:"
+  "select_language": "בחר את השפה שלך:",
+  "history_expense_line": "{{time}} [הוצאה]: {{amount}} - {{description}}\nשולם על ידי: {{paidBy}}\nמשתתפים: {{participants}}",
+  "history_settlement_line": "{{time}} [סגירה]: {{amount}} מ{{from}} אל {{to}}",
+  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}"
 }

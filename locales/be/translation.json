@@ -23,7 +23,7 @@
   "selected": "Абрана:",
   "no_participants_selected": "Яшчэ не абрана ніводнага ўдзельніка.",
   "expense_saved": "Выдатак паспяхова захаваны!",
-  "expense_added_group": "Дададзены новы выдатак! ${{amount}} - {{description}}",
+  "expense_added_group": "Дададзены новы выдатак! {{amount}} - {{description}}",
   "error_saving_expense": "Памылка захавання выдатку. Паспрабуйце яшчэ раз.",
   "participant_added": "Удзельнік дададзены!",
   "participant_removed": "Удзельнік выдалены!",
@@ -73,5 +73,8 @@
   "error_syncing_members": "Памылка сінхранізацыі ўдзельнікаў.",
   "language_set": "Мова ўсталявана на {{lang}}",
   "language_updated": "Мова абноўлена!",
-  "select_language": "Абярыце вашу мову:"
+  "select_language": "Абярыце вашу мову:",
+  "history_expense_line": "{{time}} [Выдатак]: {{amount}} - {{description}}\nЗаплаціў: {{paidBy}}\nУдзельнікі: {{participants}}",
+  "history_settlement_line": "{{time}} [Пагашэнне]: {{amount}} ад {{from}} да {{to}}",
+  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}"
 }

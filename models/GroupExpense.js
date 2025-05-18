@@ -43,7 +43,11 @@ const groupExpenseSchema = new mongoose.Schema({
         to: Number,
         amount: Number,
         timestamp: { type: Date, default: Date.now }
-    }]
+    }],
+    currency: {
+        type: String,
+        default: 'usd'
+    }
 });
 
 module.exports = mongoose.model('GroupExpense', groupExpenseSchema);

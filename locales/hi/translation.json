@@ -23,7 +23,7 @@
   "selected": "चयनित:",
   "no_participants_selected": "अभी तक कोई प्रतिभागी चयनित नहीं है।",
   "expense_saved": "खर्च सफलतापूर्वक सहेजा गया!",
-  "expense_added_group": "नया खर्च जोड़ा गया! ${{amount}} - {{description}}",
+  "expense_added_group": "नया खर्च जोड़ा गया! {{amount}} - {{description}}",
   "error_saving_expense": "खर्च सहेजने में त्रुटि। कृपया पुनः प्रयास करें।",
   "participant_added": "प्रतिभागी जोड़ा गया!",
   "participant_removed": "प्रतिभागी हटाया गया!",
@@ -73,5 +73,8 @@
   "error_syncing_members": "सदस्यों को सिंक करने में त्रुटि।",
   "language_set": "भाषा {{lang}} पर सेट की गई",
   "language_updated": "भाषा अपडेट की गई!",
-  "select_language": "अपनी भाषा चुनें:"
+  "select_language": "अपनी भाषा चुनें:",
+  "history_expense_line": "{{time}} [खर्च]: {{amount}} - {{description}}\nद्वारा भुगतान: {{paidBy}}\nप्रतिभागी: {{participants}}",
+  "history_settlement_line": "{{time}} [भुगतान]: {{amount}} से {{from}} को {{to}}",
+  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}"
 }

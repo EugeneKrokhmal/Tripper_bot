@@ -18,7 +18,7 @@ class ExpenseHandler extends BaseHandler {
     }
 
     async startExpenseFlow(msg) {
-        const t = await this.getT(msg);
+        const { t, currency } = await this.getT(msg);
         
         if (msg.chat.type === 'private') {
             this.userStates.set(this.getStateKey(msg.chat.id, msg.from.id), {
@@ -54,7 +54,7 @@ class ExpenseHandler extends BaseHandler {
     }
 
     async handleExpenseInput(msg) {
-        const t = await this.getT(msg);
+        const { t, currency } = await this.getT(msg);
         const userId = msg.from.id;
         const stateKey = this.getStateKey(userId, userId);
         const userState = this.userStates.get(stateKey);
@@ -114,7 +114,7 @@ class ExpenseHandler extends BaseHandler {
                     await this.sendMessage(userId, t('expense_saved'));
                     return this.sendMessage(userState.data.groupChatId, 
                         t('new_expense', { 
-                            amount: this.formatAmount(userState.data.amount),
+                            amount: this.formatAmount(userState.data.amount, currency, t),
                             description: userState.data.description 
                         })
                     );
@@ -196,7 +196,7 @@ class ExpenseHandler extends BaseHandler {
                 await this.sendMessage(userId, t('expense_saved'));
                 await this.sendMessage(userState.data.groupChatId, 
                     t('new_expense', { 
-                        amount: this.formatAmount(userState.data.amount),
+                        amount: this.formatAmount(userState.data.amount, currency, t),
                         description: userState.data.description 
                     })
                 );

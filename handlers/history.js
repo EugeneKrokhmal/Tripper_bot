@@ -1,4 +1,6 @@
 const GroupExpense = require('../models/GroupExpense');
+const BaseHandler = require('./BaseHandler');
+const baseHandler = new BaseHandler();
 
 async function getUserName(bot, chatId, userId, cache) {
     if (cache[userId]) return cache[userId];
@@ -33,6 +35,7 @@ module.exports = {
             if (!groupExpense || (!groupExpense.expenses.length && !groupExpense.settlements.length)) {
                 return bot.sendMessage(chatId, t('no_expenses_settlements_group'));
             }
+            const currency = groupExpense.currency || 'usd';
 
             // Combine expenses and settlements into a single timeline
             const timeline = [
@@ -67,7 +70,7 @@ module.exports = {
                     }
                     text += t('history_expense_line', {
                         time: timeStr,
-                        amount: exp.amount || '?',
+                        amount: baseHandler.formatAmount(exp.amount || 0, currency, t),
                         description: exp.description || '',
                         paidBy: paidByName,
                         participants: participantNames.join(', ')
@@ -78,7 +81,7 @@ module.exports = {
                     const toName = await getUserName(bot, chatId, set.to, nameCache);
                     text += t('history_settlement_line', {
                         time: timeStr,
-                        amount: set.amount,
+                        amount: baseHandler.formatAmount(set.amount, currency, t),
                         from: fromName,
                         to: toName
                     }) + '\n\n';

@@ -23,7 +23,7 @@
   "selected": "Dipilih:",
   "no_participants_selected": "Belum ada peserta yang dipilih.",
   "expense_saved": "Pengeluaran berhasil disimpan!",
-  "expense_added_group": "Pengeluaran baru ditambahkan! ${{amount}} - {{description}}",
+  "expense_added_group": "Pengeluaran baru ditambahkan! {{amount}} - {{description}}",
   "error_saving_expense": "Kesalahan menyimpan pengeluaran. Silakan coba lagi.",
   "participant_added": "Peserta ditambahkan!",
   "participant_removed": "Peserta dihapus!",
@@ -73,5 +73,8 @@
   "error_syncing_members": "Kesalahan menyinkronkan anggota.",
   "language_set": "Bahasa diatur ke {{lang}}",
   "language_updated": "Bahasa diperbarui!",
-  "select_language": "Pilih bahasa Anda:"
+  "select_language": "Pilih bahasa Anda:",
+  "history_expense_line": "{{time}} [Pengeluaran]: {{amount}} - {{description}}\nDibayar oleh: {{paidBy}}\nPeserta: {{participants}}",
+  "history_settlement_line": "{{time}} [Pelunasan]: {{amount}} dari {{from}} ke {{to}}",
+  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}"
 }

@@ -131,6 +131,14 @@ bot.onText(/\/language/, async (msg) => {
     showLanguageSelection(bot, msg, t);
 });
 
+bot.onText(/\/currency/, async (msg) => {
+    const t = await getT(msg);
+    if (msg.chat.type === 'private') {
+        return bot.sendMessage(msg.chat.id, t('group_only'));
+    }
+    showCurrencySelection(bot, msg, t);
+});
+
 bot.onText(/\/syncmembers/, async (msg) => {
     const t = await getT(msg);
     if (msg.chat.type === 'private') {
@@ -179,8 +187,8 @@ bot.on('callback_query', async (query) => {
         try {
             await User.findOneAndUpdate(
                 { userId: query.from.id },
-                { 
-                    $set: { 
+                {
+                    $set: {
                         language: lang,
                         username: query.from.username,
                         firstName: query.from.first_name
@@ -188,13 +196,13 @@ bot.on('callback_query', async (query) => {
                 },
                 { upsert: true }
             );
-            
+
             const t = i18next.getFixedT(lang);
             const langName = languageNames[lang] || lang;
-            
+
             await bot.answerCallbackQuery(query.id, { text: t('language_updated') });
             await bot.sendMessage(query.message.chat.id, t('language_set', { lang: langName }));
-            
+
             // Update the language selection message
             const keyboard = {
                 inline_keyboard: Object.entries(languageNames).map(([code, name]) => [{
@@ -202,7 +210,7 @@ bot.on('callback_query', async (query) => {
                     callback_data: `lang_${code}`
                 }])
             };
-            
+
             await bot.editMessageReplyMarkup(keyboard, {
                 chat_id: query.message.chat.id,
                 message_id: query.message.message_id
@@ -212,6 +220,44 @@ bot.on('callback_query', async (query) => {
             const t = i18next.getFixedT('en');
             await bot.answerCallbackQuery(query.id, { text: t('error_updating_language') });
         }
+    } else if (query.data && query.data.startsWith('currency_select_group_')) {
+        // User selected a group in private chat, now show currency options for that group
+        const groupChatId = query.data.replace('currency_select_group_', '');
+        const t = await expenseHandler.getT(query, query.from.id);
+        const group = await GroupExpense.findOne({ chatId: groupChatId });
+        const keyboard = {
+            inline_keyboard: currencyOptions.map(opt => [{
+                text: `${t.t(opt.key)}${opt.code === (group.currency || 'usd') ? ' ✓' : ''}`,
+                callback_data: `currency_${opt.code}_group_${groupChatId}`
+            }])
+        };
+        await bot.editMessageReplyMarkup(keyboard, {
+            chat_id: query.message.chat.id,
+            message_id: query.message.message_id
+        });
+        return;
+    } else if (query.data && query.data.startsWith('currency_')) {
+        // Format: currency_usd_group_123456
+        const match = query.data.match(/^currency_(\w+)_group_(.+)$/);
+        if (!match) return;
+        const currency = match[1];
+        const groupChatId = match[2];
+        try {
+            await GroupExpense.findOneAndUpdate(
+                { chatId: groupChatId },
+                { $set: { currency } },
+                { upsert: true }
+            );
+            const t = i18next.getFixedT(query.from.language_code || 'en', 'translation');
+            const currencyLabel = t(`currency_label_${currency}`);
+            await bot.answerCallbackQuery(query.id, { text: t('currency_updated', { currency: currencyLabel }) });
+            await bot.sendMessage(query.message.chat.id, t('currency_updated', { currency: currencyLabel }));
+        } catch (error) {
+            console.error('Error updating group currency:', error);
+            const t = i18next.getFixedT('en', 'translation');
+            await bot.answerCallbackQuery(query.id, { text: t('error_occurred') });
+        }
+        return;
     } else {
         expenseHandler.handleCallbackQuery(query);
         handleClearCallback(bot, query, t);
@@ -287,21 +333,89 @@ cron.schedule('0 9 * * *', () => {
 bot.onText(/\/language/, async (msg) => {
     const chatId = msg.chat.id;
     const t = await getT(msg);
-    
+
     try {
         const user = await User.findOne({ userId: msg.from.id });
         const currentLang = user?.language || 'en';
-        
+
         const keyboard = {
             inline_keyboard: Object.entries(languageNames).map(([code, name]) => [{
                 text: `${name} ${code === currentLang ? '✓' : ''}`,
                 callback_data: `lang_${code}`
             }])
         };
-        
+
         await bot.sendMessage(chatId, t('select_language'), { reply_markup: keyboard });
     } catch (error) {
         console.error('Error showing language selection:', error);
         await bot.sendMessage(chatId, t('error_showing_languages'));
+    }
+});
+
+const currencyOptions = [
+    { code: 'usd', key: 'currency_label_usd' },
+    { code: 'eur', key: 'currency_label_eur' },
+    { code: 'uah', key: 'currency_label_uah' },
+    { code: 'pln', key: 'currency_label_pln' },
+    { code: 'gbp', key: 'currency_label_gbp' },
+    { code: 'ils', key: 'currency_label_ils' },
+    { code: 'inr', key: 'currency_label_inr' },
+    { code: 'idr', key: 'currency_label_idr' },
+    { code: 'byn', key: 'currency_label_byn' },
+    { code: 'try', key: 'currency_label_try' },
+    { code: 'czk', key: 'currency_label_czk' },
+    { code: 'huf', key: 'currency_label_huf' },
+    { code: 'ron', key: 'currency_label_ron' },
+    { code: 'ars', key: 'currency_label_ars' },
+    { code: 'brl', key: 'currency_label_brl' },
+    { code: 'mxn', key: 'currency_label_mxn' },
+    { code: 'egp', key: 'currency_label_egp' },
+    { code: 'uzs', key: 'currency_label_uzs' },
+    { code: 'azn', key: 'currency_label_azn' },
+    { code: 'kzt', key: 'currency_label_kzt' }
+];
+
+bot.onText(/\/currency/, async (msg) => {
+    const { t } = await expenseHandler.getT(msg);
+    const userId = msg.from.id;
+    if (msg.chat.type === 'private') {
+        // Show group selection if user is in multiple groups
+        const groups = await GroupExpense.find({ 'members.userId': userId });
+        if (!groups.length) {
+            return bot.sendMessage(msg.chat.id, t('no_groups_found'));
+        }
+        if (groups.length === 1) {
+            const group = groups[0];
+            const keyboard = {
+                inline_keyboard: currencyOptions.map(opt => [{
+                    text: `${t(opt.key)}${opt.code === (group.currency || 'usd') ? ' ✓' : ''}`,
+                    callback_data: `currency_${opt.code}_group_${group.chatId}`
+                }])
+            };
+            return bot.sendMessage(msg.chat.id, t('select_currency'), { reply_markup: keyboard });
+        }
+        // Multiple groups: ask which group to set
+        const keyboard = {
+            inline_keyboard: groups.map(g => [{
+                text: g.groupName || t('group_id', { id: g.chatId }),
+                callback_data: `currency_select_group_${g.chatId}`
+            }])
+        };
+        return bot.sendMessage(msg.chat.id, t('select_group'), { reply_markup: keyboard });
+    } else {
+        // In group chat: set currency for this group
+        const chatId = msg.chat.id;
+        const groupExpense = await GroupExpense.findOne({ chatId });
+        if (!groupExpense) {
+            await bot.sendMessage(chatId, t('no_expenses_group'));
+            return;
+        }
+        const keyboard = {
+            inline_keyboard: currencyOptions.map(opt => [{
+                text: `${t(opt.key)}${opt.code === (groupExpense.currency || 'usd') ? ' ✓' : ''}`,
+                callback_data: `currency_${opt.code}_group_${chatId}`
+            }])
+        };
+        await bot.sendMessage(chatId, t('select_currency'), { reply_markup: keyboard });
     }
 });

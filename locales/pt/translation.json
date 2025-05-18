@@ -23,7 +23,7 @@
   "selected": "Selecionados:",
   "no_participants_selected": "Nenhum participante selecionado ainda.",
   "expense_saved": "Despesa salva com sucesso!",
-  "expense_added_group": "Nova despesa adicionada! ${{amount}} - {{description}}",
+  "expense_added_group": "Nova despesa adicionada! {{amount}} - {{description}}",
   "error_saving_expense": "Erro ao salvar a despesa. Por favor, tente novamente.",
   "participant_added": "Participante adicionado!",
   "participant_removed": "Participante removido!",
@@ -73,5 +73,8 @@
   "error_syncing_members": "Erro ao sincronizar membros.",
   "language_set": "Idioma definido para {{lang}}",
   "language_updated": "Idioma atualizado!",
-  "select_language": "Selecione seu idioma:"
+  "select_language": "Selecione seu idioma:",
+  "history_expense_line": "{{time}} [Despesa]: {{amount}} - {{description}}\nPago por: {{paidBy}}\nParticipantes: {{participants}}",
+  "history_settlement_line": "{{time}} [Quitação]: {{amount}} de {{from}} para {{to}}",
+  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}"
 }

@@ -1,4 +1,6 @@
 const GroupExpense = require('../models/GroupExpense');
+const BaseHandler = require('./BaseHandler');
+const baseHandler = new BaseHandler();
 
 const calculateDebts = async (bot, msg, t) => {
     const chatId = msg.chat.id;
@@ -8,6 +10,7 @@ const calculateDebts = async (bot, msg, t) => {
         if (!groupExpense || !groupExpense.expenses.length) {
             return bot.sendMessage(chatId, t('no_expenses_group'));
         }
+        const currency = groupExpense.currency || 'usd';
 
         const debts = new Map(); // Map to store net amounts for each user
 
@@ -57,7 +60,7 @@ const calculateDebts = async (bot, msg, t) => {
                         t('debt_line', {
                             debtor: debtor.user.first_name,
                             creditor: creditor.user.first_name,
-                            amount: transferAmount.toFixed(2)
+                            amount: baseHandler.formatAmount(transferAmount, currency, t)
                         })
                     );
 

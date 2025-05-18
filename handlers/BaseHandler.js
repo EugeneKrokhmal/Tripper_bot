@@ -19,7 +19,8 @@ class BaseHandler {
                     userId: id,
                     username: msgOrQuery.from?.username,
                     firstName: msgOrQuery.from?.first_name,
-                    language: msgOrQuery.from?.language_code || 'en'
+                    language: msgOrQuery.from?.language_code || 'en',
+                    currency: 'usd'
                 });
             } else {
                 // Update user info if it has changed
@@ -39,10 +40,16 @@ class BaseHandler {
                 }
             }
             
-            return i18next.getFixedT(user.language, 'translation');
+            return {
+                t: i18next.getFixedT(user.language, 'translation'),
+                currency: user.currency || 'usd'
+            };
         } catch (error) {
             console.error('Error getting user language:', error);
-            return i18next.getFixedT('en', 'translation');
+            return {
+                t: i18next.getFixedT('en', 'translation'),
+                currency: 'usd'
+            };
         }
     }
 
@@ -81,8 +88,35 @@ class BaseHandler {
         }
     }
 
-    formatAmount(amount) {
-        return `$${amount.toFixed(2)}`;
+    getCurrencySymbol(currency, t) {
+        const map = {
+            usd: '$',
+            eur: '€',
+            uah: '₴',
+            pln: 'zł',
+            rub: '₽',
+            gbp: '£',
+            ils: '₪',
+            inr: '₹',
+            idr: 'Rp',
+            byn: 'Br',
+            try: '₺',
+            czk: 'Kč',
+            huf: 'Ft',
+            ron: 'lei',
+            ars: '$',
+            brl: 'R$',
+            mxn: '$',
+            egp: 'E£',
+            uzs: 'soʻm',
+            azn: '₼',
+            kzt: '₸'
+        };
+        return map[currency] || '$';
+    }
+
+    formatAmount(amount, currency, t) {
+        return `${this.getCurrencySymbol(currency, t)}${amount.toFixed(2)}`;
     }
 
     async handleError(chatId, error, t) {
