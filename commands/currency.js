@@ -1,6 +1,5 @@
 const GroupExpense = require('../models/GroupExpense');
 const { formatGroupName } = require('../utils/format');
-const config = require('../utils/config');
 
 module.exports = (bot) => async (msg, t, currencyOptions, languageNames) => {
     try {

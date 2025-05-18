@@ -1,4 +1,5 @@
 require('dotenv').config();
+
 const TelegramBot = require('node-telegram-bot-api');
 const connectDB = require('./db');
 const ExpenseHandler = require('./handlers/expense');
@@ -16,13 +17,13 @@ const i18next = require('i18next');
 const Backend = require('i18next-fs-backend');
 const path = require('path');
 const upgradeCommand = require('./commands/upgrade');
-const { formatGroupName } = require('./utils/format');
-const { showLanguageSelection } = require('./handlers/language');
-const config = require('./utils/config');
+const checkPaymentCommand = require('./commands/checkpayment');
+
 const helpCommand = require('./commands/help');
 const currencyCommand = require('./commands/currency');
 const languageCommand = require('./commands/language');
 const premiumCommand = require('./commands/premium');
+const monobankCommand = require('./commands/monobank');
 
 // Initialize language support
 const languageNames = {
@@ -182,7 +183,7 @@ bot.onText(/\/syncmembers/, async (msg) => {
     })();
 });
 
-// Handle callback queries (inline keyboard buttons)
+// Register callbacks
 bot.on('callback_query', async (query) => {
     const t = await getT(query, query.from.id);
     if (query.data && query.data.startsWith('lang_')) {
@@ -270,6 +271,11 @@ bot.on('callback_query', async (query) => {
             const t = i18next.getFixedT('en', 'translation');
             await bot.answerCallbackQuery(query.id, { text: t('error_occurred') });
         }
+        return;
+    } else if (query.data && query.data.startsWith('copy_comment:')) {
+        const comment = query.data.replace('copy_comment:', '');
+        await bot.answerCallbackQuery(query.id, { text: 'Copied!' });
+        await bot.sendMessage(query.from.id, `<code>${comment}</code>`, { parse_mode: 'HTML' });
         return;
     } else {
         expenseHandler.handleCallbackQuery(query);
@@ -494,4 +500,14 @@ bot.onText(/\/language/, async (msg) => {
 bot.onText(/\/help/, async (msg) => {
     const t = await getT(msg);
     await helpCommand(bot)(msg, t);
+});
+
+bot.onText(/\/monobank/, async (msg) => {
+    const { t } = await expenseHandler.getT(msg);
+    await monobankCommand(bot)(msg, t);
+});
+
+bot.onText(/\/checkpayment( .+)?/, async (msg) => {
+    const { t } = await expenseHandler.getT(msg);
+    await checkPaymentCommand(bot)(msg, t);
 });

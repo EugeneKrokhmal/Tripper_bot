@@ -131,5 +131,8 @@
   "upgrade_in_group": "To upgrade, please use the /upgrade command in your group chat.",
   "premium_only_currency": "🚀 Unlock the power of Tripper Premium to change your group currency and enjoy advanced features! Upgrade now with /upgrade and make your group even better.",
   "premium_only_language": "🚀 Changing the group language is a Tripper Premium feature! Upgrade now with /upgrade to access all languages and premium benefits for your group.",
-  "premium_feature_locked": "🚀 Unlock the power of Tripper Premium to access this feature and enjoy unlimited members, expenses, advanced reminders, currency changes, and more! Upgrade now with /upgrade and make your group even better."
+  "premium_feature_locked": "🚀 Unlock the power of Tripper Premium to access this feature and enjoy unlimited members, expenses, advanced reminders, currency changes, and more! Upgrade now with /upgrade and make your group even better.",
+  "monobank_pay_caption": "To pay with Monobank, tap the button below.\n\n<b>Important:</b> <b>Copy and paste the comment below into the 'Comment' field on the payment page!</b>\n\nAmount: <b>{{amount}} UAH</b>\nComment: <code>{{comment}}</code>\n\nIf you do not enter the comment, your payment will not be processed automatically. The comment is NOT pre-filled by the link.",
+  "pay_with_monobank": "Pay with Monobank",
+  "monobank_paid_message": "✅ Monobank payment received! Premium activated."
 }

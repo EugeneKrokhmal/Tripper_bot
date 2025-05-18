@@ -15,12 +15,23 @@ class BaseHandler {
 
     /**
      * Gets translation function and currency for a user
-     * @param {Object} msgOrQuery - Message or callback query object
+     * @param {Object|number} msgOrQuery - Message/callback query object or user ID
      * @param {number} [userId] - Optional user ID
      * @returns {Promise<{t: Function, currency: string}>} Translation function and currency
      */
     async getT(msgOrQuery, userId) {
-        const id = userId || msgOrQuery.from?.id;
+        let id = userId;
+        if (!id) {
+            if (typeof msgOrQuery === 'object' && msgOrQuery.from && msgOrQuery.from.id) {
+                id = msgOrQuery.from.id;
+            } else if (typeof msgOrQuery === 'number') {
+                id = msgOrQuery;
+            }
+        }
+        if (!id) {
+            console.error('getT: userId is undefined. msgOrQuery:', msgOrQuery, 'userId:', userId);
+            throw new Error('getT: userId is undefined');
+        }
         try {
             // First try to find the user
             let user = await User.findOne({ userId: id });
