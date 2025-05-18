@@ -13,9 +13,25 @@ const startExpenseFlow = async (bot, msg) => {
     if (msg.chat.type === 'private') {
         userStates.set(getStateKey(msg.chat.id, msg.from.id), {
             state: states.AMOUNT,
-            data: { groupChatId: msg.chat.id }
+            data: {} // Don't set groupChatId initially
         });
-        return bot.sendMessage(msg.chat.id, 'Please enter the expense amount:');
+        // Check if user is in multiple groups
+        const groups = await GroupExpense.find({ 'members.userId': msg.from.id });
+        if (!groups.length) {
+            return bot.sendMessage(msg.chat.id, 'No groups found where you are a member.');
+        }
+        if (groups.length === 1) {
+            userStates.get(getStateKey(msg.chat.id, msg.from.id)).data.groupChatId = groups[0].chatId;
+            return bot.sendMessage(msg.chat.id, 'Please enter the expense amount:');
+        } else {
+            const keyboard = {
+                inline_keyboard: groups.map(g => [{
+                    text: g.groupName ? g.groupName : `Group ${g.chatId}`,
+                    callback_data: `expense_group_${g.chatId}`
+                }])
+            };
+            return bot.sendMessage(msg.chat.id, 'Select the group to add an expense in:', { reply_markup: keyboard });
+        }
     } else {
         await bot.sendMessage(msg.chat.id, 'Check your private chat with me to add an expense.');
         userStates.set(getStateKey(msg.from.id, msg.from.id), {
@@ -31,6 +47,26 @@ const handleExpenseInput = async (bot, msg) => {
     const stateKey = getStateKey(userId, userId);
     const userState = userStates.get(stateKey);
     if (!userState) return;
+
+    // If no groupChatId is set, check if user is in multiple groups
+    if (!userState.data.groupChatId) {
+        const groups = await GroupExpense.find({ 'members.userId': userId });
+        if (!groups.length) {
+            return bot.sendMessage(userId, 'No groups found where you are a member.');
+        }
+        if (groups.length === 1) {
+            userState.data.groupChatId = groups[0].chatId;
+        } else {
+            const keyboard = {
+                inline_keyboard: groups.map(g => [{
+                    text: g.groupName ? g.groupName : `Group ${g.chatId}`,
+                    callback_data: `expense_group_${g.chatId}`
+                }])
+            };
+            return bot.sendMessage(userId, 'Select the group to add an expense in:', { reply_markup: keyboard });
+        }
+    }
+
     const chatId = userState.data.groupChatId;
 
     switch (userState.state) {
@@ -62,15 +98,15 @@ const handleExpenseInput = async (bot, msg) => {
         case states.PARTICIPANTS:
             const expense = userState.data;
             try {
-                let groupExpense = await GroupExpense.findOne({ chatId });
+                let groupExpense = await GroupExpense.findOne({ chatId: userState.data.groupChatId });
                 if (!groupExpense) {
-                    groupExpense = new GroupExpense({ chatId, expenses: [] });
+                    groupExpense = new GroupExpense({ chatId: userState.data.groupChatId, expenses: [] });
                 }
                 groupExpense.expenses.push(expense);
                 await groupExpense.save();
                 userStates.delete(stateKey);
                 await bot.sendMessage(userId, 'Expense saved successfully!');
-                return bot.sendMessage(chatId, `A new expense was added! $${expense.amount} - ${expense.description}`);
+                return bot.sendMessage(userState.data.groupChatId, `A new expense was added! $${expense.amount} - ${expense.description}`);
             } catch (error) {
                 console.error('Error saving expense:', error);
                 await bot.sendMessage(userId, 'Error saving expense. Please try again.');
@@ -101,13 +137,14 @@ const handleCallbackQuery = async (bot, query) => {
     const stateKey = getStateKey(userId, userId);
     const userState = userStates.get(stateKey);
     if (!userState) return;
-    const chatId = userState.data.groupChatId;
 
-    // Use tracked group members
-    const groupExpense = await GroupExpense.findOne({ chatId });
-    let members = groupExpense ? groupExpense.members : [];
-    const botInfo = await bot.getMe();
-    members = members.filter(m => m.userId !== botInfo.id);
+    if (query.data && query.data.startsWith('expense_group_')) {
+        const groupChatId = query.data.replace('expense_group_', '');
+        userState.data.groupChatId = groupChatId;
+        userState.state = states.AMOUNT;
+        userStates.set(stateKey, userState);
+        return bot.sendMessage(userId, 'Please enter the amount:');
+    }
 
     if (query.data.startsWith('participant_')) {
         const participantId = parseInt(query.data.split('_')[1]);
@@ -118,6 +155,11 @@ const handleCallbackQuery = async (bot, query) => {
         } else {
             userState.data.participants.splice(idx, 1);
         }
+        // Get group members for the UI update
+        const groupExpense = await GroupExpense.findOne({ chatId: userState.data.groupChatId });
+        let members = groupExpense ? groupExpense.members : [];
+        const botInfo = await bot.getMe();
+        members = members.filter(m => m.userId !== botInfo.id);
         // Update the selection UI
         await sendParticipantSelection(bot, userId, members, userState.data.participants);
         return bot.answerCallbackQuery(query.id, { text: idx === -1 ? 'Participant added!' : 'Participant removed!' });
@@ -129,15 +171,15 @@ const handleCallbackQuery = async (bot, query) => {
         }
         // Save the expense
         try {
-            let groupExpense = await GroupExpense.findOne({ chatId });
+            let groupExpense = await GroupExpense.findOne({ chatId: userState.data.groupChatId });
             if (!groupExpense) {
-                groupExpense = new GroupExpense({ chatId, expenses: [] });
+                groupExpense = new GroupExpense({ chatId: userState.data.groupChatId, expenses: [] });
             }
             groupExpense.expenses.push(userState.data);
             await groupExpense.save();
             userStates.delete(stateKey);
             await bot.sendMessage(userId, 'Expense saved successfully!');
-            await bot.sendMessage(chatId, `A new expense was added! $${userState.data.amount} - ${userState.data.description}`);
+            await bot.sendMessage(userState.data.groupChatId, `A new expense was added! $${userState.data.amount} - ${userState.data.description}`);
             return bot.answerCallbackQuery(query.id, { text: 'Expense saved!' });
         } catch (error) {
             console.error('Error saving expense:', error);
