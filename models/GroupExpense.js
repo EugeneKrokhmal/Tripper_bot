@@ -29,6 +29,9 @@ const groupExpenseSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
+    groupName: {
+        type: String
+    },
     expenses: [expenseSchema],
     members: [{
         userId: Number,

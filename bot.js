@@ -65,11 +65,14 @@ bot.onText(/\/syncmembers/, (msg) => {
     }
     (async () => {
         const chatId = msg.chat.id;
+        const groupName = msg.chat.title || '';
         try {
             const admins = await bot.getChatAdministrators(chatId);
             let groupExpense = await GroupExpense.findOne({ chatId });
             if (!groupExpense) {
-                groupExpense = new GroupExpense({ chatId, expenses: [], members: [] });
+                groupExpense = new GroupExpense({ chatId, groupName, expenses: [], members: [] });
+            } else if (groupExpense.groupName !== groupName) {
+                groupExpense.groupName = groupName;
             }
             let updated = false;
             for (const admin of admins) {
@@ -116,10 +119,13 @@ bot.on('message', (msg) => {
 // Track new members
 bot.on('new_chat_members', async (msg) => {
     const chatId = msg.chat.id;
+    const groupName = msg.chat.title || '';
     try {
         let groupExpense = await GroupExpense.findOne({ chatId });
         if (!groupExpense) {
-            groupExpense = new GroupExpense({ chatId, expenses: [], members: [] });
+            groupExpense = new GroupExpense({ chatId, groupName, expenses: [], members: [] });
+        } else if (groupExpense.groupName !== groupName) {
+            groupExpense.groupName = groupName;
         }
         let updated = false;
         for (const user of msg.new_chat_members) {

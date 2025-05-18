@@ -1,7 +1,7 @@
 const GroupExpense = require('../models/GroupExpense');
 
-const editStates = new Map(); // key: chatId:userId, value: { idx, action }
-const getStateKey = (chatId, userId) => `${chatId}:${userId}`;
+const editStates = new Map(); // key: userId, value: { groupChatId, idx, action }
+const getStateKey = (userId) => `${userId}`;
 
 module.exports = {
     editExpense: async (bot, msg) => {
@@ -9,38 +9,41 @@ module.exports = {
             await bot.sendMessage(msg.chat.id, 'Check your private chat with me to edit your expenses.');
             return bot.sendMessage(msg.from.id, '/edit');
         }
-        const chatId = msg.chat.id;
         const userId = msg.from.id;
-        try {
-            const groupExpense = await GroupExpense.findOne({ 'members.userId': userId });
-            if (!groupExpense || !groupExpense.expenses.length) {
-                return bot.sendMessage(chatId, 'No expenses found for this group.');
-            }
-            const myExpenses = groupExpense.expenses
-                .map((exp, idx) => ({ ...exp.toObject(), idx }))
-                .filter(exp => exp.paidBy === userId);
-            if (!myExpenses.length) {
-                return bot.sendMessage(chatId, 'You have not added any expenses.');
-            }
+        // Find all groups where the user is a member
+        const groups = await GroupExpense.find({ 'members.userId': userId });
+        if (!groups.length) {
+            return bot.sendMessage(userId, 'No groups found where you have expenses.');
+        }
+        let groupExpense;
+        if (groups.length === 1) {
+            groupExpense = groups[0];
+        } else {
+            // If user is in multiple groups, ask which group to edit
             const keyboard = {
-                inline_keyboard: myExpenses.map(exp => [{
-                    text: `$${exp.amount} — ${exp.description} (${new Date(exp.timestamp).toLocaleDateString()})`,
-                    callback_data: `edit_expense_${exp.idx}`
+                inline_keyboard: groups.map(g => [{
+                    text: g.groupName ? g.groupName : `Group ${g.chatId}`,
+                    callback_data: `edit_group_${g.chatId}`
                 }])
             };
-            await bot.sendMessage(chatId, 'Select an expense to edit:', { reply_markup: keyboard });
-        } catch (err) {
-            console.error('Error in /edit:', err);
-            await bot.sendMessage(chatId, 'Error fetching your expenses.');
+            return bot.sendMessage(userId, 'Select the group to edit expenses in:', { reply_markup: keyboard });
         }
+        await showUserExpenses(bot, userId, groupExpense.chatId);
     },
     handleEditCallback: async (bot, query) => {
-        const chatId = query.message.chat.id;
         const userId = query.from.id;
-        const stateKey = getStateKey(chatId, userId);
+        const stateKey = getStateKey(userId);
+        let state = editStates.get(stateKey) || {};
+        if (query.data && query.data.startsWith('edit_group_')) {
+            const groupChatId = query.data.replace('edit_group_', '');
+            state.groupChatId = groupChatId;
+            editStates.set(stateKey, state);
+            return showUserExpenses(bot, userId, groupChatId);
+        }
         if (query.data && query.data.startsWith('edit_expense_')) {
             const idx = parseInt(query.data.split('_').pop(), 10);
-            editStates.set(stateKey, { idx });
+            state.idx = idx;
+            editStates.set(stateKey, state);
             const keyboard = {
                 inline_keyboard: [
                     [
@@ -53,58 +56,51 @@ module.exports = {
                     ]
                 ]
             };
-            return bot.sendMessage(chatId, 'What would you like to do?', { reply_markup: keyboard });
+            return bot.sendMessage(userId, 'What would you like to do?', { reply_markup: keyboard });
         }
         if (query.data === 'edit_delete') {
-            const state = editStates.get(stateKey);
-            if (!state) return;
+            if (!state.groupChatId || typeof state.idx !== 'number') return;
             try {
-                const groupExpense = await GroupExpense.findOne({ 'members.userId': userId });
+                const groupExpense = await GroupExpense.findOne({ chatId: state.groupChatId });
                 if (!groupExpense) return;
                 groupExpense.expenses.splice(state.idx, 1);
                 await groupExpense.save();
                 editStates.delete(stateKey);
-                return bot.sendMessage(chatId, 'Expense deleted.');
+                return bot.sendMessage(userId, 'Expense deleted.');
             } catch (err) {
                 console.error('Error deleting expense:', err);
-                return bot.sendMessage(chatId, 'Error deleting expense.');
+                return bot.sendMessage(userId, 'Error deleting expense.');
             }
         }
         if (query.data === 'edit_cancel') {
             editStates.delete(stateKey);
-            return bot.sendMessage(chatId, 'Edit cancelled.');
+            return bot.sendMessage(userId, 'Edit cancelled.');
         }
-        // Edit amount/description will be implemented next
         if (query.data === 'edit_amount') {
-            const state = editStates.get(stateKey);
-            if (!state) return;
             state.action = 'amount';
             editStates.set(stateKey, state);
-            return bot.sendMessage(chatId, 'Send the new amount:');
+            return bot.sendMessage(userId, 'Send the new amount:');
         }
         if (query.data === 'edit_description') {
-            const state = editStates.get(stateKey);
-            if (!state) return;
             state.action = 'description';
             editStates.set(stateKey, state);
-            return bot.sendMessage(chatId, 'Send the new description:');
+            return bot.sendMessage(userId, 'Send the new description:');
         }
     },
     handleEditMessage: async (bot, msg) => {
-        const chatId = msg.chat.id;
         const userId = msg.from.id;
-        const stateKey = getStateKey(chatId, userId);
+        const stateKey = getStateKey(userId);
         const state = editStates.get(stateKey);
-        if (!state || !state.action) return;
+        if (!state || !state.groupChatId || typeof state.idx !== 'number' || !state.action) return;
         try {
-            const groupExpense = await GroupExpense.findOne({ 'members.userId': userId });
+            const groupExpense = await GroupExpense.findOne({ chatId: state.groupChatId });
             if (!groupExpense) return;
             const expense = groupExpense.expenses[state.idx];
             if (!expense) return;
             if (state.action === 'amount') {
                 const newAmount = parseFloat(msg.text);
                 if (isNaN(newAmount) || newAmount <= 0) {
-                    return bot.sendMessage(chatId, 'Please enter a valid amount.');
+                    return bot.sendMessage(userId, 'Please enter a valid amount.');
                 }
                 expense.amount = newAmount;
             } else if (state.action === 'description') {
@@ -112,10 +108,30 @@ module.exports = {
             }
             await groupExpense.save();
             editStates.delete(stateKey);
-            return bot.sendMessage(chatId, 'Expense updated.');
+            return bot.sendMessage(userId, 'Expense updated.');
         } catch (err) {
             console.error('Error editing expense:', err);
-            return bot.sendMessage(chatId, 'Error updating expense.');
+            return bot.sendMessage(userId, 'Error updating expense.');
         }
     }
 };
+
+async function showUserExpenses(bot, userId, groupChatId) {
+    const groupExpense = await GroupExpense.findOne({ chatId: groupChatId });
+    if (!groupExpense || !groupExpense.expenses.length) {
+        return bot.sendMessage(userId, 'No expenses found for this group.');
+    }
+    const myExpenses = groupExpense.expenses
+        .map((exp, idx) => ({ ...exp.toObject(), idx }))
+        .filter(exp => exp.paidBy === userId);
+    if (!myExpenses.length) {
+        return bot.sendMessage(userId, 'You have not added any expenses.');
+    }
+    const keyboard = {
+        inline_keyboard: myExpenses.map(exp => [{
+            text: `$${exp.amount} — ${exp.description} (${new Date(exp.timestamp).toLocaleDateString()})`,
+            callback_data: `edit_expense_${exp.idx}`
+        }])
+    };
+    await bot.sendMessage(userId, 'Select an expense to edit:', { reply_markup: keyboard });
+}

@@ -19,25 +19,29 @@ module.exports = {
         const chatId = msg.chat.id;
         try {
             const groupExpense = await GroupExpense.findOne({ chatId });
-            if (!groupExpense || !groupExpense.expenses.length) {
+            if (!groupExpense || !groupExpense.expenses || !groupExpense.expenses.length) {
                 return bot.sendMessage(chatId, 'No expenses found for this group.');
             }
             const expenses = groupExpense.expenses
                 .slice()
-                .sort((a, b) => b.timestamp - a.timestamp)
-                .slice(0, 20); // Show up to 20 most recent
-            let text = '🧾 *Expense History*\n\n';
+                .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+                .slice(0, 20);
+            let text = '🧾 Expense History\n\n';
             const nameCache = {};
             for (let idx = 0; idx < expenses.length; idx++) {
                 const exp = expenses[idx];
-                const paidByName = await getUserName(bot, chatId, exp.paidBy, nameCache);
+                const paidByName = exp.paidBy
+                    ? await getUserName(bot, chatId, exp.paidBy, nameCache)
+                    : 'Unknown';
                 const participantNames = [];
-                for (const pid of exp.participants) {
-                    participantNames.push(await getUserName(bot, chatId, pid, nameCache));
+                if (Array.isArray(exp.participants)) {
+                    for (const pid of exp.participants) {
+                        participantNames.push(await getUserName(bot, chatId, pid, nameCache));
+                    }
                 }
-                text += `${idx + 1}. $${exp.amount} — ${exp.description}\nPaid by: ${paidByName}\nParticipants: ${participantNames.join(', ')}\nDate: ${new Date(exp.timestamp).toLocaleString()}\n\n`;
+                text += `${idx + 1}. $${exp.amount || '?'} — ${exp.description || ''}\nPaid by: ${paidByName}\nParticipants: ${participantNames.join(', ')}\nDate: ${exp.timestamp ? new Date(exp.timestamp).toLocaleString() : 'Unknown'}\n\n`;
             }
-            await bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+            await bot.sendMessage(chatId, text);
         } catch (err) {
             console.error('Error in /history:', err);
             await bot.sendMessage(chatId, 'Error fetching expense history.');
