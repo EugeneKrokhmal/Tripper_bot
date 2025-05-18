@@ -76,5 +76,6 @@
   "select_language": "Selecione seu idioma:",
   "history_expense_line": "{{time}} [Despesa]: {{amount}} - {{description}}\nPago por: {{paidBy}}\nParticipantes: {{participants}}",
   "history_settlement_line": "{{time}} [Quitação]: {{amount}} de {{from}} para {{to}}",
-  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}"
+  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}",
+  "expense_limit_reached": "Limite de 20 despesas atingido. Faça upgrade para premium para adicionar mais."
 }

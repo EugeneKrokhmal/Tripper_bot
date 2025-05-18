@@ -76,5 +76,6 @@
   "select_language": "Pilih bahasa Anda:",
   "history_expense_line": "{{time}} [Pengeluaran]: {{amount}} - {{description}}\nDibayar oleh: {{paidBy}}\nPeserta: {{participants}}",
   "history_settlement_line": "{{time}} [Pelunasan]: {{amount}} dari {{from}} ke {{to}}",
-  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}"
+  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}",
+  "expense_limit_reached": "Batas 20 pengeluaran tercapai. Upgrade ke premium untuk menambah lebih banyak."
 }

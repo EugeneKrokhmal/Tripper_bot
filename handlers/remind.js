@@ -4,6 +4,11 @@ async function sendDailyReminders(bot, t) {
     const groups = await GroupExpense.find({});
     for (const group of groups) {
         const chatId = group.chatId;
+        if (!group.premium) {
+            // Optionally, notify the group that reminders are a premium feature
+            await bot.sendMessage(chatId, t('premium_feature_locked'));
+            continue; // Only send reminders for premium groups
+        }
         if (!group.expenses || !group.expenses.length) continue;
 
         // Calculate debts

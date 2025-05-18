@@ -7,6 +7,8 @@ const states = {
     PARTICIPANTS: 'participants'
 };
 
+const MAX_EXPENSES_FREE = parseInt(process.env.MAX_EXPENSES_FREE, 10) || 20;
+
 class ExpenseHandler extends BaseHandler {
     constructor(bot) {
         super(bot);
@@ -19,7 +21,7 @@ class ExpenseHandler extends BaseHandler {
 
     async startExpenseFlow(msg) {
         const { t, currency } = await this.getT(msg);
-        
+
         if (msg.chat.type === 'private') {
             this.userStates.set(this.getStateKey(msg.chat.id, msg.from.id), {
                 state: states.AMOUNT,
@@ -108,14 +110,20 @@ class ExpenseHandler extends BaseHandler {
             case states.PARTICIPANTS:
                 try {
                     const groupExpense = await this.getGroupExpense(userState.data.groupChatId);
+                    // Expense limit check
+                    if (!groupExpense.premium && groupExpense.expenses.length >= MAX_EXPENSES_FREE) {
+                        await this.sendMessage(userId, t('premium_feature_locked'));
+                        this.userStates.delete(stateKey);
+                        return;
+                    }
                     groupExpense.expenses.push(userState.data);
                     await groupExpense.save();
                     this.userStates.delete(stateKey);
                     await this.sendMessage(userId, t('expense_saved'));
-                    return this.sendMessage(userState.data.groupChatId, 
-                        t('new_expense', { 
+                    return this.sendMessage(userState.data.groupChatId,
+                        t('new_expense', {
                             amount: this.formatAmount(userState.data.amount, currency, t),
-                            description: userState.data.description 
+                            description: userState.data.description
                         })
                     );
                 } catch (error) {
@@ -125,7 +133,7 @@ class ExpenseHandler extends BaseHandler {
     }
 
     async sendParticipantSelection(userId, members, selected) {
-        const t = await this.getT({ from: { id: userId } });
+        const { t } = await this.getT({ from: { id: userId } });
         const keyboard = {
             inline_keyboard: [
                 ...members.map(member => [{
@@ -149,7 +157,7 @@ class ExpenseHandler extends BaseHandler {
     }
 
     async handleCallbackQuery(query) {
-        const t = await this.getT(query, query.from.id);
+        const { t, currency } = await this.getT(query, query.from.id);
         const userId = query.from.id;
         const stateKey = this.getStateKey(userId, userId);
         const userState = this.userStates.get(stateKey);
@@ -178,8 +186,8 @@ class ExpenseHandler extends BaseHandler {
             const botInfo = await this.bot.getMe();
             members = members.filter(m => m.userId !== botInfo.id);
             await this.sendParticipantSelection(userId, members, userState.data.participants);
-            return this.answerCallbackQuery(query.id, { 
-                text: idx === -1 ? t('participant_added') : t('participant_removed') 
+            return this.answerCallbackQuery(query.id, {
+                text: idx === -1 ? t('participant_added') : t('participant_removed')
             });
         }
 
@@ -190,14 +198,20 @@ class ExpenseHandler extends BaseHandler {
 
             try {
                 const groupExpense = await this.getGroupExpense(userState.data.groupChatId);
+                // Expense limit check
+                if (!groupExpense.premium && groupExpense.expenses.length >= MAX_EXPENSES_FREE) {
+                    await this.sendMessage(userId, t('premium_feature_locked'));
+                    this.userStates.delete(stateKey);
+                    return this.answerCallbackQuery(query.id, { text: t('expense_limit_reached') });
+                }
                 groupExpense.expenses.push(userState.data);
                 await groupExpense.save();
                 this.userStates.delete(stateKey);
                 await this.sendMessage(userId, t('expense_saved'));
-                await this.sendMessage(userState.data.groupChatId, 
-                    t('new_expense', { 
+                await this.sendMessage(userState.data.groupChatId,
+                    t('new_expense', {
                         amount: this.formatAmount(userState.data.amount, currency, t),
-                        description: userState.data.description 
+                        description: userState.data.description
                     })
                 );
                 return this.answerCallbackQuery(query.id, { text: t('expense_saved') });

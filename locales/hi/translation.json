@@ -76,5 +76,6 @@
   "select_language": "अपनी भाषा चुनें:",
   "history_expense_line": "{{time}} [खर्च]: {{amount}} - {{description}}\nद्वारा भुगतान: {{paidBy}}\nप्रतिभागी: {{participants}}",
   "history_settlement_line": "{{time}} [भुगतान]: {{amount}} से {{from}} को {{to}}",
-  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}"
+  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}",
+  "expense_limit_reached": "20 खर्च की सीमा पूरी हो गई है। अधिक जोड़ने के लिए प्रीमियम लें।"
 }

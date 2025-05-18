@@ -121,7 +121,15 @@
   "premium_active_group": "This group is Premium! 🎉",
   "premium_inactive_group": "This group is Free. Upgrade to unlock premium features!",
   "premium_invoice_title": "Upgrade to Tripper Premium",
-  "premium_invoice_description": "Unlock all premium features for this group: unlimited members, PDF export, advanced reminders, and more!",
+  "premium_invoice_description": "Unlock all premium features for this group:\n• Unlimited members (current limit: {{limit}})\n• PDF export\n• Advanced reminders\n• And more!\n\nPrice: ${{price}}",
   "premium_invoice_label": "Tripper Premium (one-time)",
-  "premium_activated": "🎉 This group is now Premium! Enjoy all features!"
+  "premium_activated": "🎉 This group is now Premium! Enjoy all features!",
+  "member_limit_exceeded": "⚠️ This group has reached its member limit ({{limit}} members). Upgrade to Premium to add more members!",
+  "premium_already_active": "This group is already Premium! 🎉",
+  "error_activating_premium": "Error activating premium. Please contact support.",
+  "expense_limit_reached": "Expense limit reached. Upgrade to premium to add more expenses. Use /upgrade to unlock premium features.",
+  "upgrade_in_group": "To upgrade, please use the /upgrade command in your group chat.",
+  "premium_only_currency": "🚀 Unlock the power of Tripper Premium to change your group currency and enjoy advanced features! Upgrade now with /upgrade and make your group even better.",
+  "premium_only_language": "🚀 Changing the group language is a Tripper Premium feature! Upgrade now with /upgrade to access all languages and premium benefits for your group.",
+  "premium_feature_locked": "🚀 Unlock the power of Tripper Premium to access this feature and enjoy unlimited members, expenses, advanced reminders, currency changes, and more! Upgrade now with /upgrade and make your group even better."
 }

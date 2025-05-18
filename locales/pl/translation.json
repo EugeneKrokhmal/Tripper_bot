@@ -99,5 +99,6 @@
   "currency_label_pl": "Polski złoty (zł)",
   "history_expense_line": "{{time}} [Wydatek]: {{amount}} - {{description}}\nZapłacone przez: {{paidBy}}\nUczestnicy: {{participants}}",
   "history_settlement_line": "{{time}} [Rozliczenie]: {{amount}} od {{from}} do {{to}}",
-  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}"
+  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}",
+  "expense_limit_reached": "Osiągnięto limit 20 wydatków. Wykup premium, aby dodać więcej."
 } 

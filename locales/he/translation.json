@@ -76,5 +76,6 @@
   "select_language": "בחר את השפה שלך:",
   "history_expense_line": "{{time}} [הוצאה]: {{amount}} - {{description}}\nשולם על ידי: {{paidBy}}\nמשתתפים: {{participants}}",
   "history_settlement_line": "{{time}} [סגירה]: {{amount}} מ{{from}} אל {{to}}",
-  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}"
+  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}",
+  "expense_limit_reached": "הגעת למגבלת 20 הוצאות. שדרג לפרימיום כדי להוסיף עוד."
 }

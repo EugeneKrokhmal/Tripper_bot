@@ -76,5 +76,6 @@
   "select_language": "Абярыце вашу мову:",
   "history_expense_line": "{{time}} [Выдатак]: {{amount}} - {{description}}\nЗаплаціў: {{paidBy}}\nУдзельнікі: {{participants}}",
   "history_settlement_line": "{{time}} [Пагашэнне]: {{amount}} ад {{from}} да {{to}}",
-  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}"
+  "debt_line": "{{debtor}} → {{creditor}}: {{amount}}",
+  "expense_limit_reached": "Дастигнут лимит 20 расходов. Оформите премиум, чтобы добавить больше."
 }
