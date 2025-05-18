@@ -18,14 +18,14 @@ const path = require('path');
 
 // Initialize language support
 const languageNames = {
-    en: 'English',
-    uk: 'Українська',
-    be: 'Беларуская',
-    hi: 'हिन्दी',
-    id: 'Bahasa Indonesia',
-    es: 'Español',
-    pt: 'Português',
-    he: 'עברית'
+    en: '🇬🇧 English',
+    uk: '🇺🇦 Ukrainian',
+    be: '🇧🇾 Belarusian',
+    hi: '🇮🇳 Hindi',
+    id: '🇮🇩 Indonesian',
+    es: '🇪🇸 Spanish',
+    pt: '🇵🇹 Portuguese',
+    he: '🇮🇱 עברית'
 };
 
 i18next.use(Backend).init({
@@ -61,7 +61,8 @@ bot.setMyCommands([
 bot.setMyCommands([
     { command: 'pay', description: 'Add an expense' },
     { command: 'edit', description: 'Edit your expenses' },
-    { command: 'settle', description: 'Mark a debt as settled' }
+    { command: 'settle', description: 'Mark a debt as settled' },
+    { command: 'language', description: 'Change language' }
 ], { scope: { type: 'all_private_chats' } });
 
 // Command handlers
@@ -121,6 +122,15 @@ bot.onText(/\/settle/, async (msg) => {
     }
     settleDebt(bot, msg, t);
 });
+
+bot.onText(/\/language/, async (msg) => {
+    const t = await getT(msg);
+    if (msg.chat.type === 'private') {
+        return bot.sendMessage(msg.chat.id, t('group_only'));
+    }
+    showLanguageSelection(bot, msg, t);
+});
+
 bot.onText(/\/syncmembers/, async (msg) => {
     const t = await getT(msg);
     if (msg.chat.type === 'private') {
