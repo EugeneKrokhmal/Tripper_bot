@@ -54,6 +54,7 @@ bot.setMyCommands([
     { command: 'debts', description: 'Show who owes whom' },
     { command: 'history', description: 'Show expense history' },
     { command: 'clear', description: 'Clear all expenses' },
+    { command: 'currency', description: 'Change currency' },
     { command: 'syncmembers', description: 'Sync current admins to the group member list' }
 ], { scope: { type: 'all_group_chats' } });
 
