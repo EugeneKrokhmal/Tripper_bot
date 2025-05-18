@@ -14,32 +14,64 @@ async function getUserName(bot, chatId, userId, cache) {
     }
 }
 
+function formatDate(date) {
+    if (!date) return 'Unknown';
+    const d = new Date(date);
+    const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    const day = d.getDate();
+    const month = months[d.getMonth()];
+    const hours = d.getHours().toString().padStart(2, '0');
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    return `${day} ${month} ${hours}:${minutes}`;
+}
+
 module.exports = {
     showHistory: async (bot, msg) => {
         const chatId = msg.chat.id;
         try {
             const groupExpense = await GroupExpense.findOne({ chatId });
-            if (!groupExpense || !groupExpense.expenses || !groupExpense.expenses.length) {
-                return bot.sendMessage(chatId, 'No expenses found for this group.');
+            if (!groupExpense || (!groupExpense.expenses.length && !groupExpense.settlements.length)) {
+                return bot.sendMessage(chatId, 'No expenses or settlements found for this group.');
             }
-            const expenses = groupExpense.expenses
-                .slice()
-                .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-                .slice(0, 20);
-            let text = '🧾 Expense History\n\n';
+
+            // Combine expenses and settlements into a single timeline
+            const timeline = [
+                ...(groupExpense.expenses || []).map(exp => ({
+                    type: 'expense',
+                    data: exp,
+                    timestamp: exp.timestamp
+                })),
+                ...(groupExpense.settlements || []).map(set => ({
+                    type: 'settlement',
+                    data: set,
+                    timestamp: set.timestamp
+                }))
+            ].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+             .slice(0, 20);
+
+            let text = 'Expense History\n\n';
             const nameCache = {};
-            for (let idx = 0; idx < expenses.length; idx++) {
-                const exp = expenses[idx];
-                const paidByName = exp.paidBy
-                    ? await getUserName(bot, chatId, exp.paidBy, nameCache)
-                    : 'Unknown';
-                const participantNames = [];
-                if (Array.isArray(exp.participants)) {
-                    for (const pid of exp.participants) {
-                        participantNames.push(await getUserName(bot, chatId, pid, nameCache));
+
+            for (const item of timeline) {
+                const timeStr = formatDate(item.timestamp);
+                if (item.type === 'expense') {
+                    const exp = item.data;
+                    const paidByName = exp.paidBy
+                        ? await getUserName(bot, chatId, exp.paidBy, nameCache)
+                        : 'Unknown';
+                    const participantNames = [];
+                    if (Array.isArray(exp.participants)) {
+                        for (const pid of exp.participants) {
+                            participantNames.push(await getUserName(bot, chatId, pid, nameCache));
+                        }
                     }
+                    text += `${timeStr} [Expense]: $${exp.amount || '?'} - ${exp.description || ''}\nPaid by: ${paidByName}\nParticipants: ${participantNames.join(', ')}\n\n`;
+                } else {
+                    const set = item.data;
+                    const fromName = await getUserName(bot, chatId, set.from, nameCache);
+                    const toName = await getUserName(bot, chatId, set.to, nameCache);
+                    text += `${timeStr} [Settlement]: $${set.amount} from ${fromName} to ${toName}\n\n`;
                 }
-                text += `${idx + 1}. $${exp.amount || '?'} — ${exp.description || ''}\nPaid by: ${paidByName}\nParticipants: ${participantNames.join(', ')}\nDate: ${exp.timestamp ? new Date(exp.timestamp).toLocaleString() : 'Unknown'}\n\n`;
             }
             await bot.sendMessage(chatId, text);
         } catch (err) {
